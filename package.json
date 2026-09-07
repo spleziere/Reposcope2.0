@@ -1,0 +1,30 @@
+{
+  "name": "mirror-dev",
+  "version": "2.0.0",
+  "description": "Instant architecture maps for any GitHub repository — in the browser, no install required. Includes a local CLI for deep import-dependency graphs.",
+  "main": "cli/cli.ts",
+  "scripts": {
+    "dev": "ts-node cli/cli.ts",
+    "dev:imports": "ts-node cli/cli.ts --imports"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spleziere-prog/mirror-dev.git"
+  },
+  "keywords": ["github", "architecture", "diagram", "visualization", "mermaid", "cli"],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/spleziere-prog/mirror-dev/issues"
+  },
+  "homepage": "https://spleziere-prog.github.io/mirror-dev/",
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "mermaid": "^11.15.0"
+  }
+}

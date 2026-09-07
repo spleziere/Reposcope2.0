@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MIRROR — instant architecture maps for any GitHub repo</title>
+<meta name="description" content="Paste a GitHub repo URL, get a visual architecture map in seconds. No install, no backend, nothing leaves your browser." />
+
+<meta property="og:title" content="MIRROR — instant architecture maps for any GitHub repo" />
+<meta property="og:description" content="Paste a GitHub repo URL, get a visual architecture map in seconds." />
+<meta property="og:type" content="website" />
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%2305070d%22/><path d=%22M20 70 L50 25 L80 70%22 stroke=%22%2360a5fa%22 stroke-width=%228%22 fill=%22none%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M20 72 L50 26 L80 72" stroke="url(#g)" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#60a5fa"/>
+            <stop offset="1" stop-color="#818cf8"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="brand-name">MIRROR</span>
+    </div>
+    <a class="gh-link" href="https://github.com/spleziere-prog/mirror-dev" target="_blank" rel="noopener">Source & CLI ↗</a>
+  </header>
+
+  <main>
+    <section class="hero" id="hero">
+      <h1>Any repo, understood <span class="grad">in one look.</span></h1>
+      <p class="lede">Paste a GitHub URL. Get the architecture map instantly — right here in your browser, nothing uploaded, nothing installed.</p>
+
+      <form id="repoForm" class="repo-form" autocomplete="off">
+        <span class="prompt-glyph">›</span>
+        <input
+          id="repoInput"
+          type="text"
+          inputmode="url"
+          placeholder="github.com/vercel/next.js  or  owner/repo"
+          aria-label="GitHub repository"
+          spellcheck="false"
+        />
+        <button type="submit" id="renderBtn">
+          <span class="btn-label">Visualize</span>
+        </button>
+      </form>
+
+      <div class="try-row">
+        <span>Try:</span>
+        <button class="chip" data-repo="vercel/next.js">vercel/next.js</button>
+        <button class="chip" data-repo="pallets/flask">pallets/flask</button>
+        <button class="chip" data-repo="sveltejs/svelte">sveltejs/svelte</button>
+        <button class="chip" data-repo="spleziere-prog/mirror-dev">this repo</button>
+      </div>
+
+      <details class="token-box">
+        <summary>Hitting a rate limit? Add a GitHub token</summary>
+        <div class="token-inner">
+          <p>Unauthenticated requests are capped at 60/hour by GitHub. A personal access token (no scopes needed, public repo read access only) raises that to 5,000/hour. The token stays in your browser's local storage and is sent only to <code>api.github.com</code> — this page has no server to send it to.</p>
+          <input id="tokenInput" type="password" placeholder="ghp_..." spellcheck="false" />
+          <button id="tokenSave" type="button">Save</button>
+          <button id="tokenClear" type="button" class="ghost">Clear</button>
+        </div>
+      </details>
+    </section>
+
+    <section class="stage" id="stage" hidden>
+      <div class="stats" id="stats"></div>
+
+      <div class="canvas-shell">
+        <div class="canvas-toolbar">
+          <div class="toggle-group" role="group" aria-label="Detail level">
+            <button class="toggle active" data-mode="folders" id="modeFolders">Folders</button>
+            <button class="toggle" data-mode="files" id="modeFiles">Folders + files</button>
+          </div>
+
+          <div class="heatmap-controls">
+            <label class="hm-switch">
+              <input type="checkbox" id="heatmapToggle" checked />
+              <span>🔥 Heatmap</span>
+            </label>
+            <select id="heatmapMetric" aria-label="Heatmap metric">
+              <option value="combined" selected>Size + centrality</option>
+              <option value="size">Size only</option>
+              <option value="centrality">Centrality only</option>
+            </select>
+          </div>
+
+          <div class="toolbar-actions">
+            <button id="copyLinkBtn" class="tool-btn" title="Copy shareable link">Copy link</button>
+            <button id="downloadBtn" class="tool-btn" title="Download as SVG">Download SVG</button>
+          </div>
+        </div>
+
+        <div class="heatmap-legend" id="heatmapLegend">
+          <span class="legend-label">Cooler / smaller</span>
+          <span class="legend-bar"></span>
+          <span class="legend-label">Hotter / larger &amp; central</span>
+          <button id="churnBtn" class="tool-btn ghost-btn" title="Fetch last-commit recency for the hottest folders">+ Add churn (uses API calls)</button>
+        </div>
+
+        <div class="graph-container" id="graphContainer">
+          <div class="mermaid" id="mermaidTarget"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="state" id="loadingState" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="loadingText">Fetching repository tree…</p>
+    </section>
+
+    <section class="state error" id="errorState" hidden>
+      <p id="errorText"></p>
+      <button id="errorRetry" class="tool-btn">Try again</button>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>MIRROR — static, client-side, open source.</span>
+    <span class="dot">·</span>
+    <span>Rate-limit friendly? <a href="#" id="footerTokenLink">add a token</a></span>
+  </footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
