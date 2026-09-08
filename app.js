@@ -95,6 +95,15 @@ function hexToRgb(hex) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+function componentToHex(c) {
+  const h = c.toString(16);
+  return h.length === 1 ? "0" + h : h;
+}
+
+// Returns a plain #RRGGBB hex string — deliberately NOT rgb(r,g,b). Mermaid's
+// style directive splits on commas, and round-bracket node shapes use "(" / ")"
+// as delimiters, so a color value containing either breaks the whole diagram
+// parse (symptom: heatmap silently renders nothing).
 function colorForScore(score) {
   const cool = hexToRgb("#4ade80");   // green — small / peripheral
   const mid = hexToRgb("#f5a86b");    // amber — mid
@@ -104,7 +113,7 @@ function colorForScore(score) {
   const t = score <= 0.5 ? score / 0.5 : (score - 0.5) / 0.5;
 
   const r = lerp(c1[0], c2[0], t), g = lerp(c1[1], c2[1], t), b = lerp(c1[2], c2[2], t);
-  return `rgb(${r},${g},${b})`;
+  return `#${componentToHex(r)}${componentToHex(g)}${componentToHex(b)}`;
 }
 
 function formatBytes(n) {
@@ -354,15 +363,31 @@ async function renderGraph(mode) {
   }
 
   const graphData = buildGraph(lastTreeData.files, mode);
-  const def = renderMermaidDef(graphData, mode, heatmapOn);
   const { folderCount, fileCount, truncatedFolders, truncatedFiles } = graphData;
 
-  mermaidTarget.removeAttribute("data-processed");
-  mermaidTarget.innerHTML = def;
-  try {
+  async function attemptRender(withHeatmap) {
+    const def = renderMermaidDef(graphData, mode, withHeatmap);
+    mermaidTarget.removeAttribute("data-processed");
+    mermaidTarget.innerHTML = def;
     await mermaid.run({ nodes: [mermaidTarget] });
+  }
+
+  try {
+    await attemptRender(heatmapOn);
   } catch (e) {
-    graphContainer.innerHTML = `<p style="color:var(--text-dim);padding:20px;">Couldn't render this graph — the repository structure may be unusually shaped. Try "Folders" view instead.</p>`;
+    if (heatmapOn) {
+      // Heatmap styling caused a parse error on this repo's structure — fall
+      // back to a plain diagram rather than showing nothing.
+      try {
+        await attemptRender(false);
+        statsEl.insertAdjacentHTML("beforeend",
+          ` <span style="color:var(--amber)">Heatmap couldn't render for this repo — showing plain view.</span>`);
+      } catch (e2) {
+        graphContainer.innerHTML = `<p style="color:var(--text-dim);padding:20px;">Couldn't render this graph — the repository structure may be unusually shaped.</p>`;
+      }
+      return;
+    }
+    graphContainer.innerHTML = `<p style="color:var(--text-dim);padding:20px;">Couldn't render this graph — the repository structure may be unusually shaped.</p>`;
     return;
   }
 
@@ -433,6 +458,16 @@ document.querySelectorAll(".chip").forEach((chip) => {
 });
 
 $("errorRetry").addEventListener("click", () => showState("hero"));
+
+$("brandHome").addEventListener("click", (e) => {
+  e.preventDefault();
+  showState("hero");
+  input.value = "";
+  input.focus();
+  const url = new URL(window.location);
+  url.searchParams.delete("repo");
+  window.history.replaceState({}, "", url);
+});
 
 modeFolders.addEventListener("click", () => setMode("folders"));
 modeFiles.addEventListener("click", () => setMode("files"));
