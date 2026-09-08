@@ -55,7 +55,8 @@ main, header, footer { position: relative; z-index: 1; }
   padding: 28px 40px;
 }
 
-.brand { display: flex; align-items: center; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; cursor: pointer; transition: opacity 0.15s; }
+.brand:hover { opacity: 0.8; }
 .brand-mark { width: 22px; height: 22px; }
 .brand-name {
   font-family: var(--mono);
